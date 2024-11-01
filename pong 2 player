@@ -1,0 +1,249 @@
+git remote add origin https://github.com/JonahM123/Pong-2-player.git
+git branch -M main
+git push -u origin main
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pong Game</title>
+    <h3>Player 1 uses W and S keys, Player 2 uses the Up and Down arrow keys</h3>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        canvas { background: #000; display: block; margin: 0 auto; }
+        h1 { color: #FFF; }
+        #scoreboard { color: #FFF; font-size: 24px; margin-top: 10px; }
+        #buttonContainer { margin-top: 10px; }
+        #pauseButton, #startButton, #restartButton, #modeButton { padding: 10px; font-size: 16px; margin: 5px; }
+        #gameOver { color: #FFF; font-size: 32px; margin-top: 20px; display: none; }
+        #ballSpeedLabel { color: #FFF; font-size: 16px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Pong Game</h1>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="scoreboard">
+        Player 1 Score: <span id="player1Score">0</span> - Player 2 Score: <span id="player2Score">0</span>
+    </div>
+    <div id="buttonContainer">
+        <button id="startButton">Start</button>
+        <button id="pauseButton">Pause</button>
+        <button id="restartButton">Restart</button>
+        <button id="modeButton">Mode: Classic</button>
+    </div>
+    <div id="ballSpeedContainer">
+        <label id="ballSpeedLabel">Ball Speed: <span id="ballSpeedValue">5</span></label>
+        <input type="range" id="ballSpeedSlider" min="1" max="20" value="5">
+    </div>
+    <div id="gameOver">Game Over! <br> <button id="restartGameButton">Restart Game</button></div>
+
+    <audio id="hitSound" src="beeep-43965.mp3" preload="auto"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@latest/dist/confetti.browser.min.js"></script>
+
+    <script>
+        var canvas = document.getElementById('gameCanvas');
+        var ctx = canvas.getContext('2d');
+
+        var paddleWidth = 10, paddleHeight = 100;
+        var ballSize = 10;
+        var paddleSpeed = 5;
+        var ballSpeedX = 5, ballSpeedY = 3;
+        var player1PaddleY = 150, player2PaddleY = 150;
+        var ballX = 400, ballY = 200;
+        var player1Score = 0, player2Score = 0;
+
+        var keys = {};
+        var isPaused = false;
+        var isStarted = false;
+        var gameInterval;
+        var currentMode = 'Classic';
+
+        function draw() {
+            if (!isStarted || isPaused) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw paddles
+            ctx.fillStyle = '#FFF';
+            ctx.fillRect(0, player1PaddleY, paddleWidth, paddleHeight);
+            ctx.fillRect(canvas.width - paddleWidth, player2PaddleY, paddleWidth, paddleHeight);
+
+            // Draw ball
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, ballSize, 0, Math.PI * 2, false);
+            ctx.fill();
+
+            // Ball movement
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            // Ball collision with top/bottom walls
+            if (ballY + ballSize > canvas.height || ballY - ballSize < 0) ballSpeedY = -ballSpeedY;
+
+            // Ball goes past the paddles
+            if (ballX + ballSize > canvas.width) {
+                player1Score++;
+                document.getElementById('player1Score').innerText = player1Score;
+                if (player1Score >= 10) {
+                    endGame("Player 1 Wins!");
+                } else {
+                    resetBall();
+                }
+            }
+            if (ballX - ballSize < 0) {
+                player2Score++;
+                document.getElementById('player2Score').innerText = player2Score;
+                if (player2Score >= 10) {
+                    endGame("Player 2 Wins!");
+                } else {
+                    resetBall();
+                }
+            }
+
+            // Paddle collision
+            if (ballX - ballSize < paddleWidth && ballY > player1PaddleY && ballY < player1PaddleY + paddleHeight) {
+                ballSpeedX = -ballSpeedX;
+                document.getElementById('hitSound').play(); // Play sound on hit
+            }
+            if (ballX + ballSize > canvas.width - paddleWidth && ballY > player2PaddleY && ballY < player2PaddleY + paddleHeight) {
+                ballSpeedX = -ballSpeedX;
+                document.getElementById('hitSound').play(); // Play sound on hit
+            }
+
+            // Mode-specific features
+            switch (currentMode) {
+                case 'Speed Mode':
+                    ballSpeedX += 1; // Slightly increase speed
+                    ballSpeedY += 1;
+                    break;
+                case 'Size Mode':
+                    if (Math.random() > 0.98) { // Randomly change size
+                        ballSize = Math.random() * 20 + 5;
+                        paddleWidth = Math.random() * 20 + 10;
+                        paddleHeight = Math.random() * 100 + 50;
+                    }
+                    break;
+                case 'Bouncy Mode':
+                    ballSpeedX += (Math.random() - 0.5) * 2; // Add random velocity
+                    ballSpeedY += (Math.random() - 0.5) * 2;
+                    break;
+                case 'Chaos Mode':
+                    // Combine features of all modes
+                    ballSpeedX += 1; // Increase speed gradually
+                    ballSpeedY += 1;
+                    if (Math.random() > 0.98) { // Randomly change size
+                        ballSize = Math.random() * 20 + 5;
+                        paddleWidth = Math.random() * 20 + 10;
+                        paddleHeight = Math.random() * 100 + 50;
+                    }
+                    ballSpeedX += (Math.random() - 0.5) * 2; // Add random velocity
+                    ballSpeedY += (Math.random() - 0.5) * 2;
+                    break;
+            }
+        }
+
+        function resetBall() {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballSpeedX = -ballSpeedX;
+            ballSpeedY = (Math.random() > 0.5 ? 1 : -1) * Math.abs(ballSpeedY);
+        }
+
+        function startGame() {
+            isStarted = true;
+            document.getElementById('startButton').style.display = 'none'; // Hide the start button
+            document.getElementById('gameOver').style.display = 'none'; // Hide game over message
+            if (isPaused) {
+                isPaused = false;
+                document.getElementById('pauseButton').innerText = 'Pause';
+            }
+        }
+
+        function restartGame() {
+            isStarted = false;
+            isPaused = false;
+            player1Score = 0;
+            player2Score = 0;
+            player1PaddleY = 150;
+            player2PaddleY = 150;
+            resetBall();
+            document.getElementById('player1Score').innerText = player1Score;
+            document.getElementById('player2Score').innerText = player2Score;
+            document.getElementById('startButton').style.display = 'inline'; // Show the start button
+            document.getElementById('pauseButton').innerText = 'Pause'; // Reset pause button text
+            document.getElementById('gameOver').style.display = 'none'; // Hide game over message
+        }
+
+        function endGame(message) {
+            isStarted = false;
+            document.getElementById('gameOver').style.display = 'block'; // Show game over message
+            document.getElementById('gameOver').innerHTML = message + '<br><button id="restartGameButton">Restart Game</button>';
+            document.getElementById('restartGameButton').addEventListener('click', restartGame);
+            // Trigger confetti to celebrate the end of the game
+            triggerConfetti();
+        }
+
+        function triggerConfetti() {
+            confetti({
+                particleCount: 999, // Increase the number of confetti particles
+                spread: 360, // Widen the spread of the confetti
+                origin: { y: 0.6 }, // Start the confetti from the top of the canvas
+                scalar: 2.5 // Make the confetti particles larger
+            });
+        }
+
+        function togglePause() {
+            if (!isStarted) return;
+            isPaused = !isPaused;
+            document.getElementById('pauseButton').innerText = isPaused ? 'Resume' : 'Pause';
+        }
+
+        function changeMode() {
+            var modes = ['Classic', 'Speed Mode', 'Size Mode', 'Bouncy Mode', 'Chaos Mode'];
+            var currentIndex = modes.indexOf(currentMode);
+            currentMode = modes[(currentIndex + 1) % modes.length];
+            document.getElementById('modeButton').innerText = 'Mode: ' + currentMode;
+        }
+
+        // Update ball speed based on slider value
+        function updateBallSpeed() {
+            var speed = document.getElementById('ballSpeedSlider').value;
+            document.getElementById('ballSpeedValue').innerText = speed;
+            ballSpeedX = parseFloat(speed);
+            ballSpeedY = parseFloat(speed) * 0.6; // Maintain the ratio between X and Y speeds
+        }
+
+        // Key event handlers
+        function updatePaddles() {
+            if (keys['ArrowUp'] && player2PaddleY > 0) {
+                player2PaddleY -= paddleSpeed;
+            }
+            if (keys['ArrowDown'] && player2PaddleY < canvas.height - paddleHeight) {
+                player2PaddleY += paddleSpeed;
+            }
+            if (keys['w'] && player1PaddleY > 0) {
+                player1PaddleY -= paddleSpeed;
+            }
+            if (keys['s'] && player1PaddleY < canvas.height - paddleHeight) {
+                player1PaddleY += paddleSpeed;
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', function(e) {
+            keys[e.key] = false;
+        });
+
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('pauseButton').addEventListener('click', togglePause);
+        document.getElementById('modeButton').addEventListener('click', changeMode);
+        document.getElementById('ballSpeedSlider').addEventListener('input', updateBallSpeed);
+
+        gameInterval = setInterval(function() {
+            updatePaddles();
+            draw();
+        }, 1000 / 60);
+    </script>
+</body>
+</html>
